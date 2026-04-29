@@ -248,7 +248,7 @@
 
         const fileName = nombreArchivoSeguro(data.title || q) + ".jpg";
 
-        coverPreview.src = data.downloadUrl;
+        coverPreview.src = data.previewUrl || data.downloadUrl;
         coverPreview.alt = `Portada de ${data.title || q}`;
 
         downloadLink.href = data.downloadUrl;
