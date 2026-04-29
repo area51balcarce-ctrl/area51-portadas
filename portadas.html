@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AREA 51 - Descargador de Portadas</title>
+  <style>
+    :root {
+      --bg1:#2c0044;
+      --bg2:#05010a;
+      --green:#00e676;
+      --whatsapp:#25d366;
+      --danger:#ff3b5f;
+      --text:#111;
+      --muted:#666;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background: radial-gradient(circle at top, var(--bg1), var(--bg2) 65%);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .card {
+      width: 100%;
+      max-width: 560px;
+      background: #fff;
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 0 28px rgba(0,230,118,.35);
+      border: 1px solid rgba(0,230,118,.25);
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .logo {
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+    .subtitle {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    label {
+      display: block;
+      margin-top: 14px;
+      margin-bottom: 6px;
+      font-weight: bold;
+      font-size: 13px;
+    }
+    input {
+      width: 100%;
+      border: 1px solid #bbb;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 15px;
+      outline: none;
+    }
+    input:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(0,230,118,.18);
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: end;
+    }
+    button, .download-link {
+      border: none;
+      border-radius: 999px;
+      padding: 12px 16px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 14px;
+      color: #fff;
+      background: linear-gradient(90deg, var(--green), var(--whatsapp));
+      box-shadow: 0 0 12px rgba(0,230,118,.45);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+    }
+    button:disabled {
+      opacity: .65;
+      cursor: not-allowed;
+    }
+    .status {
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--muted);
+      min-height: 18px;
+    }
+    .status.ok { color: #087d36; font-weight: bold; }
+    .status.error { color: var(--danger); font-weight: bold; }
+    .result {
+      display: none;
+      margin-top: 18px;
+      padding: 14px;
+      border-radius: 14px;
+      background: #f7fff9;
+      border: 1px solid #b7ebc6;
+    }
+    .cover {
+      width: 100%;
+      max-height: 520px;
+      object-fit: contain;
+      border-radius: 12px;
+      background: #111;
+      display: block;
+    }
+    .meta {
+      margin: 10px 0;
+      font-size: 13px;
+      color: #333;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .ghost {
+      background: #111;
+      box-shadow: none;
+    }
+    .warning {
+      margin-top: 14px;
+      padding: 10px;
+      border-radius: 10px;
+      background: #fff8e1;
+      border: 1px solid #ffe08a;
+      font-size: 12px;
+      color: #5c4400;
+      line-height: 1.4;
+    }
+    @media (max-width: 520px) {
+      .row { grid-template-columns: 1fr; }
+      button { width: 100%; }
+      .actions > * { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="header">
+      <img class="logo" src="https://i.imgur.com/qW3bMA7.jpeg" alt="Logo AREA 51" />
+      <div>
+        <h1>AREA 51 - Portadas GamesFull</h1>
+        <div class="subtitle">Buscador especializado. Escribís el juego y descarga la portada si está disponible públicamente.</div>
+      </div>
+    </div>
+
+    <label for="gameName">Nombre del juego</label>
+    <div class="row">
+      <input id="gameName" type="text" placeholder="Ej: Grand Theft Auto V" autocomplete="off" />
+      <button id="btnBuscar" type="button">Buscar portada</button>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <section id="result" class="result">
+      <img id="coverPreview" class="cover" alt="Portada encontrada" />
+      <div id="meta" class="meta"></div>
+      <div class="actions">
+        <a id="downloadLink" class="download-link" href="#" download>Descargar portada</a>
+        <a id="gameLink" class="download-link ghost" href="#" target="_blank" rel="noopener noreferrer">Ver juego</a>
+      </div>
+    </section>
+
+    <div class="warning">
+      Uso recomendado: portadas públicas para catálogo interno. No descarga juegos, torrents ni contenido protegido. Herramienta quirúrgica: no toca tus otros módulos.
+    </div>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    const gameName = $("gameName");
+    const btnBuscar = $("btnBuscar");
+    const statusBox = $("status");
+    const resultBox = $("result");
+    const coverPreview = $("coverPreview");
+    const meta = $("meta");
+    const downloadLink = $("downloadLink");
+    const gameLink = $("gameLink");
+
+    function setStatus(text, type = "") {
+      statusBox.textContent = text;
+      statusBox.className = "status" + (type ? " " + type : "");
+    }
+
+    function limpiarResultado() {
+      resultBox.style.display = "none";
+      coverPreview.removeAttribute("src");
+      downloadLink.href = "#";
+      gameLink.href = "#";
+      meta.textContent = "";
+    }
+
+    function nombreArchivoSeguro(texto) {
+      return (texto || "portada")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9\-_ ]/g, "")
+        .trim()
+        .replace(/\s+/g, "_")
+        .slice(0, 80) || "portada";
+    }
+
+    async function buscarPortada() {
+      const q = gameName.value.trim();
+      if (!q) {
+        setStatus("Escribí el nombre de un juego.", "error");
+        return;
+      }
+
+      limpiarResultado();
+      btnBuscar.disabled = true;
+      setStatus("Buscando portada...", "");
+
+      try {
+        const res = await fetch(`/api/buscarPortada?game=${encodeURIComponent(q)}`);
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          throw new Error(data.error || "No se encontró una portada disponible.");
+        }
+
+        const fileName = nombreArchivoSeguro(data.title || q) + ".jpg";
+
+        coverPreview.src = data.downloadUrl;
+        coverPreview.alt = `Portada de ${data.title || q}`;
+
+        downloadLink.href = data.downloadUrl;
+        downloadLink.download = fileName;
+
+        gameLink.href = data.gameUrl;
+        meta.innerHTML = `
+          <b>Juego:</b> ${data.title || q}<br>
+          <b>Origen:</b> ${data.gameUrl}<br>
+          <b>Imagen:</b> ${data.imageUrl}
+        `;
+
+        resultBox.style.display = "block";
+        setStatus("Portada encontrada. Objetivo adquirido ✅", "ok");
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || "Error buscando portada.", "error");
+      } finally {
+        btnBuscar.disabled = false;
+      }
+    }
+
+    btnBuscar.addEventListener("click", buscarPortada);
+    gameName.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") buscarPortada();
+    });
+  </script>
+</body>
+</html>
