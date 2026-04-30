@@ -1,6 +1,6 @@
 // api/buscarPortada.js
 // AREA 51 - Buscador/descargador de portadas públicas de GamesFull
-// V2: selección más precisa + preview por proxy.
+// V3: prioriza PORTADA/POSTER real y penaliza wallpapers/banners.
 
 const BASE_URL = "https://gamesfull.app";
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36 AREA51-CoverTool/2.0";
@@ -86,21 +86,63 @@ function elegirMejorImagen(urls, title = "", pageUrl = "") {
   const titleSlug = slugify(title);
   const pageSlug = (pageUrl.match(/\/juegos\/([^/?#]+)/i)?.[1] || "").toLowerCase();
   const words = normalizar(title).split(" ").filter((w) => w.length >= 3);
-  const malas = ["avatar", "logo", "user", "profile", "placeholder", "icon", "favicon", "banner-ads", "discord", "telegram", "whatsapp", "youtube", "facebook", "instagram", "default", "loading"];
-  const limpias = urls.filter((url) => { const u = url.toLowerCase(); return /\.(jpg|jpeg|png|webp)(\?|$)/i.test(u) && !malas.some((bad) => u.includes(bad)); });
+  const malas = ["avatar", "logo", "user", "profile", "placeholder", "icon", "favicon", "banner-ads", "discord", "telegram", "whatsapp", "youtube", "facebook", "instagram", "default", "loading", "sprite"];
+  const limpias = urls.filter((url) => {
+    const u = url.toLowerCase();
+    return /\.(jpg|jpeg|png|webp)(\?|$)/i.test(u) && !malas.some((bad) => u.includes(bad));
+  });
   const puntuar = (url, index) => {
-    const u = decodeURIComponent(url).toLowerCase(); let score = 100 - index;
-    if (titleSlug && u.includes(titleSlug)) score += 180;
-    if (pageSlug && u.includes(pageSlug)) score += 180;
-    for (const w of words) if (u.includes(w)) score += 25;
-    if (u.includes("cover")) score += 40; if (u.includes("portada")) score += 40; if (u.includes("poster")) score += 35; if (u.includes("juegos")) score += 20;
+    const u = decodeURIComponent(url).toLowerCase();
+    let score = 100 - index;
     const relevant = (titleSlug && u.includes(titleSlug)) || (pageSlug && u.includes(pageSlug)) || words.some((w) => u.includes(w));
-    if (!relevant && u.includes("poster")) score -= 120;
-    if (u.includes("thumb")) score -= 20; if (u.includes("small")) score -= 25; if (u.includes("150x") || u.includes("100x")) score -= 60;
+    if (relevant) score += 260;
+    if (titleSlug && u.includes(titleSlug)) score += 160;
+    if (pageSlug && u.includes(pageSlug)) score += 160;
+    for (const w of words) if (u.includes(w)) score += 20;
+    if (u.includes("poster")) score += 520;
+    if (u.includes("cover")) score += 420;
+    if (u.includes("portada")) score += 420;
+    if (u.includes("boxart")) score += 360;
+    if (u.includes("capsule")) score += 160;
+    if (/\b(193x288|300x450|512x768|600x900|400x600|450x650|600x800)\b/.test(u)) score += 300;
+    if (u.includes("wallpaper")) score -= 650;
+    if (u.includes("background")) score -= 450;
+    if (u.includes("hero")) score -= 360;
+    if (u.includes("banner")) score -= 300;
+    if (u.includes("screenshot")) score -= 320;
+    if (u.includes("gallery")) score -= 220;
+    if (u.includes("slider")) score -= 220;
+    if (!relevant) score -= 220;
+    if (u.includes("thumb")) score -= 20;
+    if (u.includes("small")) score -= 25;
+    if (u.includes("150x") || u.includes("100x")) score -= 60;
     return score;
   };
   return (limpias.length ? limpias : urls).map((url, index) => ({ url, score: puntuar(url, index) })).sort((a, b) => b.score - a.score)[0]?.url || "";
 }
+
+async function existeImagen(url) {
+  try {
+    const r = await fetch(url, { method: "GET", headers: { "User-Agent": USER_AGENT, "Referer": BASE_URL + "/", "Accept": "image/*,*/*;q=0.8" } });
+    const ct = r.headers.get("content-type") || "";
+    return r.ok && ct.startsWith("image/");
+  } catch { return false; }
+}
+
+async function buscarPosterPorConvencion(imageUrl) {
+  if (!imageUrl) return "";
+  const candidatos = [
+    imageUrl.replace("/wallpaper/", "/poster/").replace(/-wallpaper-/i, "-poster-"),
+    imageUrl.replace("/wallpaper/", "/cover/").replace(/-wallpaper-/i, "-cover-"),
+    imageUrl.replace(/-wallpaper-/i, "-poster-"),
+    imageUrl.replace(/-wallpaper-/i, "-cover-")
+  ];
+  for (const c of [...new Set(candidatos)]) {
+    if (c !== imageUrl && await existeImagen(c)) return c;
+  }
+  return "";
+}
+
 async function proxyImagen(req, res) {
   const imageUrl = req.query.url;
   const name = req.query.name || "portada";
@@ -126,7 +168,11 @@ export default async function handler(req, res) {
     if (!page) return json(res, 404, { ok: false, error: "No encontré el juego en GamesFull. Probá con el nombre más exacto." });
     const title = page.title || extraerTitulo(page.text) || game;
     const imageUrls = extraerImagenes(page.text, page.url);
-    const imageUrl = elegirMejorImagen(imageUrls, title, page.url);
+    let imageUrl = elegirMejorImagen(imageUrls, title, page.url);
+    if (imageUrl && /wallpaper|background|hero|banner/i.test(imageUrl)) {
+      const posterConvencion = await buscarPosterPorConvencion(imageUrl);
+      if (posterConvencion) imageUrl = posterConvencion;
+    }
     if (!imageUrl) return json(res, 404, { ok: false, error: "Encontré el juego, pero no pude detectar una portada descargable.", gameUrl: page.url, title });
     const safeName = slugify(title || game) || "portada";
     const proxyBase = `/api/buscarPortada?download=1&name=${encodeURIComponent(safeName)}&url=${encodeURIComponent(imageUrl)}`;
