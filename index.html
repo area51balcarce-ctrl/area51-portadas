@@ -2,65 +2,174 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>AREA 51 - Portadas PRO</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AREA 51 - Portadas HD</title>
+
 <style>
 body {
-  font-family: Arial;
-  background: #0d0d0d;
-  color: white;
-  text-align: center;
-  padding: 40px;
+  margin: 0;
+  min-height: 100vh;
+  font-family: Arial, sans-serif;
+  background: radial-gradient(circle at top, #3b0057, #05010a 65%, #000);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  box-sizing: border-box;
 }
+
+.card {
+  width: 100%;
+  max-width: 520px;
+  background: #fff;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 0 28px rgba(0, 230, 118, .45);
+}
+
+h1 {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+
+p {
+  margin-top: 0;
+  color: #555;
+  font-size: 13px;
+}
+
+label {
+  display: block;
+  font-weight: bold;
+  margin: 14px 0 6px;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+}
+
 input {
-  padding: 10px;
-  width: 250px;
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #bbb;
+  font-size: 15px;
 }
+
 button {
-  padding: 10px 20px;
+  border: none;
+  border-radius: 999px;
+  padding: 12px 18px;
+  font-weight: bold;
   cursor: pointer;
+  color: white;
+  background: linear-gradient(90deg, #00e676, #25d366);
+  box-shadow: 0 0 12px rgba(0, 230, 118, .45);
 }
-img {
-  margin-top: 20px;
-  max-width: 300px;
+
+.result {
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #f0fff4;
+  border: 1px solid #b7ebc6;
+}
+
+.result img {
+  width: 100%;
+  max-height: 560px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #111;
+}
+
+.actions {
+  margin-top: 12px;
+}
+
+.status {
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.error {
+  color: #c62828;
+}
+
+.ok {
+  color: #0a8f3c;
 }
 </style>
 </head>
+
 <body>
 
-<h1>🎮 Portadas PRO</h1>
+<div class="card">
+  <h1>AREA 51 - Portadas HD</h1>
+  <p>Buscador de portadas verticales (SteamGridDB).</p>
 
-<input id="juego" placeholder="Ej: The Last of Us" />
-<button onclick="buscar()">Buscar</button>
+  <label>Nombre del juego</label>
+  <div class="row">
+    <input id="juego" placeholder="Ej: God of War" />
+    <button onclick="buscarPortada()">Buscar</button>
+  </div>
 
-<div id="resultado"></div>
+  <div id="estado" class="status"></div>
+  <div id="resultado"></div>
+</div>
 
 <script>
-async function buscar() {
-  const juego = document.getElementById("juego").value;
+async function buscarPortada() {
+  const juego = document.getElementById("juego").value.trim();
+  const estado = document.getElementById("estado");
+  const resultado = document.getElementById("resultado");
 
-  const res = await fetch(`/api/buscarPortada?juego=${encodeURIComponent(juego)}`);
-  const data = await res.json();
+  resultado.innerHTML = "";
 
-  const div = document.getElementById("resultado");
-
-  if (data.error) {
-    div.innerHTML = "No encontrada";
+  if (!juego) {
+    estado.textContent = "Ingresá el nombre del juego.";
+    estado.className = "status error";
     return;
   }
 
-resultado.innerHTML = `
-  <div class="result">
-    <img src="${data.imagen}" alt="${data.juego}">
-    <h3>${data.juego}</h3>
+  estado.textContent = "Buscando portada HD...";
+  estado.className = "status";
 
-    <div style="margin-top:10px;">
-      <a href="${data.imagen}" download target="_blank">
-        <button>⬇ Descargar portada</button>
-      </a>
-    </div>
+  try {
+    const res = await fetch("/api/buscarPortada?juego=" + encodeURIComponent(juego));
+    const data = await res.json();
 
-  </div>
-`;
+    if (!data.ok) {
+      estado.textContent = data.error || "No encontrada.";
+      estado.className = "status error";
+      return;
+    }
+
+    estado.textContent = "Portada encontrada ✅";
+    estado.className = "status ok";
+
+    resultado.innerHTML = `
+      <div class="result">
+        <img src="${data.imagen}" alt="${data.juego}">
+        <h3>${data.juego}</h3>
+
+        <div class="actions">
+          <a href="${data.imagen}" download target="_blank">
+            <button>⬇ Descargar portada</button>
+          </a>
+        </div>
+
+      </div>
+    `;
+
+  } catch (error) {
+    console.error(error);
+    estado.textContent = "Error conectando con la API.";
+    estado.className = "status error";
+  }
+}
 </script>
 
 </body>
