@@ -2,47 +2,50 @@ export default async function handler(req, res) {
   const { juego } = req.query;
 
   if (!juego) {
-    return res.status(400).json({ error: "Falta juego" });
+    return res.status(400).json({ ok: false, error: "Falta el nombre del juego" });
   }
 
   try {
-    // 1. Token Twitch
-    const tokenRes = await fetch(`https://id.twitch.tv/oauth2/token?client_id=${process.env.CLIENT_ID}&client_secret=${process.env.CLIENT_SECRET}&grant_type=client_credentials`, {
-      method: "POST"
-    });
-
-    const tokenData = await tokenRes.json();
-    const accessToken = tokenData.access_token;
-
-    // 2. Buscar juego en IGDB
-    const igdbRes = await fetch("https://api.igdb.com/v4/games", {
-      method: "POST",
+    const buscarUrl = `https://www.steamgriddb.com/search/grids?term=${encodeURIComponent(juego)}`;
+    const htmlRes = await fetch(buscarUrl, {
       headers: {
-        "Client-ID": process.env.CLIENT_ID,
-        "Authorization": `Bearer ${accessToken}`,
-        "Content-Type": "text/plain"
-      },
-      body: `search "${juego}"; fields name, cover.url; limit 1;`
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "text/html"
+      }
     });
 
-    const data = await igdbRes.json();
+    const html = await htmlRes.text();
 
-    if (!data.length || !data[0].cover) {
-      return res.status(404).json({ error: "No encontrada" });
+    const urls = [...html.matchAll(/https:\/\/cdn\.steamgriddb\.com\/grid\/[^"'\\\s<>]+?\.(?:png|jpg|jpeg|webp)/gi)]
+      .map(m => m[0])
+      .filter(Boolean);
+
+    const unicas = [...new Set(urls)];
+
+    if (!unicas.length) {
+      return res.status(404).json({ ok: false, error: "No se encontraron portadas verticales" });
     }
 
-    let img = data[0].cover.url;
+    const candidatas = unicas.filter(url =>
+      url.includes("600x900") ||
+      url.includes("512x768") ||
+      url.includes("342x482")
+    );
 
-    // mejorar calidad
-    img = img.replace("t_thumb", "t_cover_big");
+    const imagen = candidatas[0] || unicas[0];
 
     return res.status(200).json({
-      juego: data[0].name,
-      imagen: "https:" + img
+      ok: true,
+      juego,
+      imagen,
+      total: unicas.length
     });
 
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Error interno" });
+    console.error("Error SteamGridDB:", err);
+    return res.status(500).json({
+      ok: false,
+      error: "Error consultando SteamGridDB"
+    });
   }
 }
