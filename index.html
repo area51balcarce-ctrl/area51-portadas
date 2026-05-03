@@ -48,15 +48,19 @@ async function buscar() {
     return;
   }
 
-  div.innerHTML = `
+resultado.innerHTML = `
+  <div class="result">
+    <img src="${data.imagen}" alt="${data.juego}">
     <h3>${data.juego}</h3>
-    <img src="${data.imagen}" />
-    <br><br>
-    <a href="${data.imagen}" download>
-      <button>⬇ Descargar</button>
-    </a>
-  `;
-}
+
+    <div style="margin-top:10px;">
+      <a href="${data.imagen}" download target="_blank">
+        <button>⬇ Descargar portada</button>
+      </a>
+    </div>
+
+  </div>
+`;
 </script>
 
 </body>
