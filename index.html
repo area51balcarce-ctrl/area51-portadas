@@ -143,7 +143,7 @@ button {
 
 <div class="card">
   <h1>AREA 51 - Portadas HD</h1>
-  <p>Buscador de portadas verticales 600x900. Elegís una y se descarga al toque.</p>
+  <p>Buscador de portadas verticales 600x900. Elegís una y se descarga automáticamente.</p>
 
   <label>Nombre del juego</label>
   <div class="row">
@@ -225,10 +225,15 @@ function limpiarNombre(nombre) {
 }
 
 function descargarImagen(url, nombreArchivo) {
+  const descargaUrl =
+    "/api/descargarPortada?url=" +
+    encodeURIComponent(url) +
+    "&nombre=" +
+    encodeURIComponent(nombreArchivo);
+
   const link = document.createElement("a");
-  link.href = url;
+  link.href = descargaUrl;
   link.download = nombreArchivo;
-  link.target = "_blank";
 
   document.body.appendChild(link);
   link.click();
