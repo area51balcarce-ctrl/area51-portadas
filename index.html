@@ -11,16 +11,14 @@ body {
   min-height: 100vh;
   font-family: Arial, sans-serif;
   background: radial-gradient(circle at top, #3b0057, #05010a 65%, #000);
-  display: flex;
-  justify-content: center;
-  align-items: center;
   padding: 20px;
   box-sizing: border-box;
 }
 
 .card {
   width: 100%;
-  max-width: 520px;
+  max-width: 980px;
+  margin: auto;
   background: #fff;
   border-radius: 18px;
   padding: 24px;
@@ -68,26 +66,6 @@ button {
   box-shadow: 0 0 12px rgba(0, 230, 118, .45);
 }
 
-.result {
-  margin-top: 18px;
-  padding: 14px;
-  border-radius: 14px;
-  background: #f0fff4;
-  border: 1px solid #b7ebc6;
-}
-
-.result img {
-  width: 100%;
-  max-height: 560px;
-  object-fit: contain;
-  border-radius: 12px;
-  background: #111;
-}
-
-.actions {
-  margin-top: 12px;
-}
-
 .status {
   margin-top: 12px;
   font-size: 13px;
@@ -101,6 +79,63 @@ button {
 .ok {
   color: #0a8f3c;
 }
+
+.gallery {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 18px;
+}
+
+.item {
+  background: #f0fff4;
+  border: 1px solid #b7ebc6;
+  border-radius: 14px;
+  padding: 12px;
+  text-align: center;
+}
+
+.item img {
+  width: 100%;
+  height: 270px;
+  object-fit: cover;
+  border-radius: 12px;
+  background: #111;
+}
+
+.item h3 {
+  font-size: 14px;
+  margin: 10px 0 4px;
+}
+
+.item p {
+  margin: 0 0 10px;
+  font-size: 12px;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.btn-secondary {
+  background: linear-gradient(90deg, #3b0057, #6a008f);
+}
+
+@media (max-width: 600px) {
+  .row {
+    flex-direction: column;
+  }
+
+  .gallery {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+
+  .item img {
+    height: 220px;
+  }
+}
 </style>
 </head>
 
@@ -108,12 +143,13 @@ button {
 
 <div class="card">
   <h1>AREA 51 - Portadas HD</h1>
-  <p>Buscador de portadas verticales (SteamGridDB).</p>
+  <p>Buscador de portadas verticales 600x900. Elegís una y se descarga al toque.</p>
 
   <label>Nombre del juego</label>
   <div class="row">
-    <input id="juego" placeholder="Ej: God of War" />
-    <button onclick="buscarPortada()">Buscar</button>
+    <input id="juego" placeholder="Ej: God of War"
+           onkeydown="if(event.key==='Enter') buscarPortadas()" />
+    <button onclick="buscarPortadas()">Buscar</button>
   </div>
 
   <div id="estado" class="status"></div>
@@ -121,7 +157,7 @@ button {
 </div>
 
 <script>
-async function buscarPortada() {
+async function buscarPortadas() {
   const juego = document.getElementById("juego").value.trim();
   const estado = document.getElementById("estado");
   const resultado = document.getElementById("resultado");
@@ -134,7 +170,7 @@ async function buscarPortada() {
     return;
   }
 
-  estado.textContent = "Buscando portada HD...";
+  estado.textContent = "Buscando portadas HD...";
   estado.className = "status";
 
   try {
@@ -147,20 +183,28 @@ async function buscarPortada() {
       return;
     }
 
-    estado.textContent = "Portada encontrada ✅";
+    estado.textContent = `${data.portadas.length} portadas encontradas ✅`;
     estado.className = "status ok";
 
     resultado.innerHTML = `
-      <div class="result">
-        <img src="${data.imagen}" alt="${data.juego}">
-        <h3>${data.juego}</h3>
+      <div class="gallery">
+        ${data.portadas.map((img, index) => `
+          <div class="item">
+            <img src="${img.thumb || img.url}" alt="${data.juego}">
+            <h3>${data.juego}</h3>
+            <p>${img.width || "-"} x ${img.height || "-"}</p>
 
-        <div class="actions">
-          <a href="${data.imagen}" download target="_blank">
-            <button>⬇ Descargar portada</button>
-          </a>
-        </div>
+            <div class="actions">
+              <button onclick="descargarImagen('${img.url}', '${limpiarNombre(data.juego)}_${index + 1}.jpg')">
+                ⬇ Descargar
+              </button>
 
+              <a href="${img.url}" target="_blank">
+                <button class="btn-secondary">Ver grande</button>
+              </a>
+            </div>
+          </div>
+        `).join("")}
       </div>
     `;
 
@@ -168,6 +212,37 @@ async function buscarPortada() {
     console.error(error);
     estado.textContent = "Error conectando con la API.";
     estado.className = "status error";
+  }
+}
+
+function limpiarNombre(nombre) {
+  return nombre
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\\u0300-\\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+async function descargarImagen(url, nombreArchivo) {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+
+    a.href = blobUrl;
+    a.download = nombreArchivo;
+    document.body.appendChild(a);
+    a.click();
+
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+
+  } catch (error) {
+    console.error(error);
+    window.open(url, "_blank");
   }
 }
 </script>
