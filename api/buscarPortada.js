@@ -2,43 +2,61 @@ export default async function handler(req, res) {
   const { juego } = req.query;
 
   if (!juego) {
-    return res.status(400).json({ ok: false, error: "Falta el nombre del juego" });
+    return res.status(400).json({ ok: false, error: "Falta juego" });
+  }
+
+  const API_KEY = process.env.STEAMGRIDDB_API_KEY;
+
+  if (!API_KEY) {
+    return res.status(500).json({
+      ok: false,
+      error: "Falta STEAMGRIDDB_API_KEY en Vercel"
+    });
   }
 
   try {
-    const buscarUrl = `https://www.steamgriddb.com/search/grids?term=${encodeURIComponent(juego)}`;
-    const htmlRes = await fetch(buscarUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-        "Accept": "text/html"
-      }
-    });
+    const headers = {
+      Authorization: `Bearer ${API_KEY}`
+    };
 
-    const html = await htmlRes.text();
-
-    const urls = [...html.matchAll(/https:\/\/cdn\.steamgriddb\.com\/grid\/[^"'\\\s<>]+?\.(?:png|jpg|jpeg|webp)/gi)]
-      .map(m => m[0])
-      .filter(Boolean);
-
-    const unicas = [...new Set(urls)];
-
-    if (!unicas.length) {
-      return res.status(404).json({ ok: false, error: "No se encontraron portadas verticales" });
-    }
-
-    const candidatas = unicas.filter(url =>
-      url.includes("600x900") ||
-      url.includes("512x768") ||
-      url.includes("342x482")
+    const searchRes = await fetch(
+      `https://www.steamgriddb.com/api/v2/search/autocomplete/${encodeURIComponent(juego)}`,
+      { headers }
     );
 
-    const imagen = candidatas[0] || unicas[0];
+    const searchData = await searchRes.json();
+
+    if (!searchData.success || !searchData.data || searchData.data.length === 0) {
+      return res.status(404).json({
+        ok: false,
+        error: "Juego no encontrado"
+      });
+    }
+
+    const game = searchData.data[0];
+
+    const gridsRes = await fetch(
+      `https://www.steamgriddb.com/api/v2/grids/game/${game.id}?dimensions=600x900&types=static`,
+      { headers }
+    );
+
+    const gridsData = await gridsRes.json();
+
+    if (!gridsData.success || !gridsData.data || gridsData.data.length === 0) {
+      return res.status(404).json({
+        ok: false,
+        error: "No se encontraron portadas verticales"
+      });
+    }
+
+    const portada = gridsData.data[0];
 
     return res.status(200).json({
       ok: true,
-      juego,
-      imagen,
-      total: unicas.length
+      juego: game.name,
+      imagen: portada.url,
+      width: portada.width,
+      height: portada.height
     });
 
   } catch (err) {
