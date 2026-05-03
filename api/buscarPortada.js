@@ -27,10 +27,7 @@ export default async function handler(req, res) {
     const searchData = await searchRes.json();
 
     if (!searchData.success || !searchData.data || searchData.data.length === 0) {
-      return res.status(404).json({
-        ok: false,
-        error: "Juego no encontrado"
-      });
+      return res.status(404).json({ ok: false, error: "Juego no encontrado" });
     }
 
     const game = searchData.data[0];
@@ -49,14 +46,18 @@ export default async function handler(req, res) {
       });
     }
 
-    const portada = gridsData.data[0];
+    const portadas = gridsData.data.slice(0, 12).map((img, index) => ({
+      id: img.id || index,
+      url: img.url,
+      thumb: img.thumb || img.url,
+      width: img.width,
+      height: img.height
+    }));
 
     return res.status(200).json({
       ok: true,
       juego: game.name,
-      imagen: portada.url,
-      width: portada.width,
-      height: portada.height
+      portadas
     });
 
   } catch (err) {
